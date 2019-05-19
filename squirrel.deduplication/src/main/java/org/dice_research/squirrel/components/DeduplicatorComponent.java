@@ -31,6 +31,8 @@ import org.hobbit.core.data.RabbitQueue;
 import org.hobbit.core.rabbit.DataReceiverImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
 
 /**
  * This component is responsible for deduplication.
@@ -42,6 +44,9 @@ import org.slf4j.LoggerFactory;
  * If The hash values of two uris are equal, the deduplicator looks behind the triples of those two uris and compares them. If the
  * lists of triples are equal, one of the two lists of triples will be deleted as it is a duplicate.
  */
+
+@Component
+@Qualifier("deduplicatorComponent")
 public class DeduplicatorComponent extends AbstractComponent implements RespondingDataHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DeduplicatorComponent.class);
@@ -78,6 +83,7 @@ public class DeduplicatorComponent extends AbstractComponent implements Respondi
     public void init() throws Exception {
         super.init();
         Map<String, String> env = System.getenv();
+
         if (env.containsKey(Constants.DEDUPLICATION_ACTIVE_KEY)) {
             deduplicationActive = Boolean.parseBoolean(env.get(Constants.DEDUPLICATION_ACTIVE_KEY));
         } else {
@@ -85,22 +91,47 @@ public class DeduplicatorComponent extends AbstractComponent implements Respondi
             deduplicationActive = Constants.DEFAULT_DEDUPLICATION_ACTIVE;
         }
         if (deduplicationActive) {
-            String rdbHostName = null;
-            int rdbPort = -1;
-            if (env.containsKey(Constants.RDB_HOST_NAME_KEY)) {
-                rdbHostName = env.get(Constants.RDB_HOST_NAME_KEY);
-                if (env.containsKey(Constants.RDB_PORT_KEY)) {
-                    rdbPort = Integer.parseInt(env.get(Constants.RDB_PORT_KEY));
-                } else {
-                    LOGGER.warn("Couldn't get {} from the environment. An in-memory queue will be used.", Constants.RDB_PORT_KEY);
-                }
-            } else {
-                LOGGER.warn("Couldn't get {} from the environment. An in-memory queue will be used.", Constants.RDB_HOST_NAME_KEY);
-            }
+            // Old Method: Using MongoDB
+//            String rdbHostName = null;
+//            int rdbPort = -1;
+//            if (env.containsKey(Constants.MDB_HOST_NAME_KEY)) {
+//                rdbHostName = env.get(Constants.MDB_HOST_NAME_KEY);
+//                if (env.containsKey(Constants.MDB_PORT_KEY)) {
+//                    rdbPort = Integer.parseInt(env.get(Constants.MDB_PORT_KEY));
+//                } else {
+//                    LOGGER.warn("Couldn't get {} from the environment. An in-memory queue will be used.", Constants.MDB_PORT_KEY);
+//                }
+//            } else {
+//                LOGGER.warn("Couldn't get {} from the environment. An in-memory queue will be used.", Constants.MDB_HOST_NAME_KEY);
+//            }
+
+            // New SO19: Using SPARQL
             String sparqlHostName = null;
-            String sparqlHostPort = null;
+            int sparqlPort = -1;
+            if  (env.containsKey(Constants.SPARQL_URL)){
+                // FIXME : Get SPARQL values from WorkerConfiguration.
+                // FIXME : Create Sparql Sink SparqlBasedSink (Might have to create new sink constructor, dependent on
+                // FIXME :       the data required by future methods).
+                // FIXME : uriHashCustodian (Create {uriKnownFilter}? based on future methods).
+                sparqlHostName = env.get(Constants.SPARQL_URL);
+                sparqlPort = Integer.parseInt(env.get(Constants.RDB_PORT_KEY));
+                if(sparqlHostName == null){
+
+                }
+//                if(env.containsKey((Constants.RDB_PORT_KEY))){
+//                    sparqlPort = Integer.parseInt(env.get(Constants.RDB_PORT_KEY));
+//                }else{
+//                    LOGGER.warn("Couldn't get {} from the environment. An in-memory queue will be used.", Constants.RDB_PORT_KEY);
+//                }
+            }else{
+                LOGGER.warn("Couldn't get {} from the environment. An in-memory queue will be used.", Constants.SPARQL_URL);
+            }
+
+
+//            String sparqlHostName = null;
+//            String sparqlHostPort = null;
 //            FIXME Fix the following code
-//            
+//
 //            if (env.containsKey(WorkerConfiguration.SPARQL_HOST_PORTS_KEY)) {
 //                sparqlHostName = env.get(WorkerConfiguration.SPARQL_HOST_CONTAINER_NAME_KEY);
 //                if (env.containsKey(WorkerConfiguration.SPARQL_HOST_PORTS_KEY)) {
@@ -133,7 +164,7 @@ public class DeduplicatorComponent extends AbstractComponent implements Respondi
             LOGGER.info("Deduplicator initialized.");
         }
     }
-
+    //SO19: Calculate hash values based on metadata
     private void handleNewUris(List<CrawleableUri> uris) {
         for (CrawleableUri nextUri : uris) {
             List<Triple> triples = sink.getTriplesForGraph(nextUri);
@@ -200,6 +231,7 @@ public class DeduplicatorComponent extends AbstractComponent implements Respondi
 
     @Override
     public void handleData(byte[] data, ResponseHandler handler, String responseQueueName, String correlId) {
+        LOGGER.info("Deduplicator invoked!");
         if (!deduplicationActive) {
             return;
         }

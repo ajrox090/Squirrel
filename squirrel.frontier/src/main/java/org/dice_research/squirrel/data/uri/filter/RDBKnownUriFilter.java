@@ -67,7 +67,7 @@ public class RDBKnownUriFilter implements KnownUriFilter, Closeable, UriHashCust
     /**
      * Constructor.
      *
-     * @param hostname               The hostname for database.
+     * @param name               The hostname for database.
      * @param port                   The port for the database.
      * @param frontierDoesRecrawling Value for {@link #frontierDoesRecrawling}.
      */
